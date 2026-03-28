@@ -1,0 +1,24 @@
+{
+  "server_url": "http://127.0.0.1:8765",
+  "camera_name": "living-room-cam-1",
+  "send_fps": 2.0,
+  "request_timeout_seconds": 10.0,
+  "connect_retry_seconds": 3.0,
+  "state_dir": "state/agent",
+  "camera_command": [
+    "/home/samarth/.local/bin/pi-camera",
+    "video",
+    "--timeout",
+    "0",
+    "--width",
+    "1280",
+    "--height",
+    "720",
+    "--framerate",
+    "10",
+    "--codec",
+    "mjpeg",
+    "-o",
+    "-"
+  ]
+}
