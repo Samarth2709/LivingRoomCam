@@ -1,0 +1,15 @@
+[Unit]
+Description=LivingRoomCam Pi capture agent
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=samarth
+WorkingDirectory=/home/samarth/Documents/LivingRoomCam
+ExecStart=/home/samarth/Documents/LivingRoomCam/scripts/run-agent.sh /home/samarth/Documents/LivingRoomCam/config/pi-agent.local.json
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
