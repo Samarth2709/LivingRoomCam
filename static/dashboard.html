@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>LivingRoomCam</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    :root {
+      --bg: #f4efe5;
+      --panel: #fffaf1;
+      --ink: #1f2328;
+      --muted: #5e6a73;
+      --line: #d8cdb7;
+      --accent: #8e4b32;
+      --accent-soft: #f1ddca;
+    }
+    body {
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background:
+        radial-gradient(circle at top right, #f9e4d3 0, transparent 30%),
+        linear-gradient(180deg, #f7f1e7 0%, #efe7da 100%);
+      color: var(--ink);
+    }
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 24px;
+    }
+    h1, h2 {
+      margin: 0 0 12px;
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 18px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 18px;
+      box-shadow: 0 8px 30px rgba(93, 66, 42, 0.06);
+    }
+    .wide {
+      grid-column: 1 / -1;
+    }
+    img {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--line);
+      background: #ddd;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+    th, td {
+      padding: 8px 6px;
+      border-bottom: 1px solid #ece4d7;
+      text-align: left;
+      vertical-align: top;
+    }
+    .muted {
+      color: var(--muted);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: var(--accent);
+      font-size: 12px;
+    }
+    form {
+      display: flex;
+      gap: 8px;
+    }
+    input {
+      flex: 1;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+    }
+    button {
+      border: 0;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      padding: 8px 12px;
+      cursor: pointer;
+    }
+    @media (max-width: 920px) {
+      .grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="grid">
+      <section class="panel">
+        <h1>LivingRoomCam</h1>
+        <p class="muted">Latest camera frame and live occupant state.</p>
+        <img id="latest-frame" alt="Latest frame" src="/api/latest-frame.jpg">
+      </section>
+      <section class="panel">
+        <h2>Current Occupants</h2>
+        <table>
+          <thead>
+            <tr><th>Name</th><th>Status</th><th>Zone</th><th>Samples</th></tr>
+          </thead>
+          <tbody id="occupants"></tbody>
+        </table>
+      </section>
+      <section class="panel wide">
+        <h2>People</h2>
+        <table>
+          <thead>
+            <tr><th>ID</th><th>Name</th><th>Status</th><th>Samples</th><th>Rename</th></tr>
+          </thead>
+          <tbody id="people"></tbody>
+        </table>
+      </section>
+      <section class="panel wide">
+        <h2>Recent Visits</h2>
+        <table>
+          <thead>
+            <tr><th>Label</th><th>Started</th><th>Ended</th><th>Duration</th><th>Reason</th></tr>
+          </thead>
+          <tbody id="visits"></tbody>
+        </table>
+      </section>
+    </div>
+  </main>
+  <script>
+    async function fetchJson(url) {
+      const response = await fetch(url);
+      return response.json();
+    }
+
+    function formatDuration(seconds) {
+      if (seconds === null || seconds === undefined) return 'active';
+      return `${Math.round(seconds)}s`;
+    }
+
+    async function loadOccupants() {
+      const data = await fetchJson('/api/occupants');
+      const tbody = document.getElementById('occupants');
+      tbody.innerHTML = '';
+      for (const item of data.occupants) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${item.display_name}</td>
+          <td><span class="badge">${item.status}</span></td>
+          <td>${item.zone_name}</td>
+          <td>${item.good_sample_count}/${item.sample_count}</td>
+        `;
+        tbody.appendChild(row);
+      }
+    }
+
+    async function renamePerson(personId, value) {
+      await fetch(`/api/people/${personId}/rename`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({display_name: value})
+      });
+      await loadPeople();
+      await loadVisits();
+      await loadOccupants();
+    }
+
+    async function loadPeople() {
+      const data = await fetchJson('/api/people');
+      const tbody = document.getElementById('people');
+      tbody.innerHTML = '';
+      for (const person of data.people) {
+        const row = document.createElement('tr');
+        const inputId = `rename-${person.id}`;
+        row.innerHTML = `
+          <td>${person.id}</td>
+          <td>${person.display_name}</td>
+          <td><span class="badge">${person.status}</span></td>
+          <td>${person.sample_count}</td>
+          <td>
+            <form data-person-id="${person.id}">
+              <input id="${inputId}" name="display_name" placeholder="Assign name">
+              <button type="submit">Save</button>
+            </form>
+          </td>
+        `;
+        row.querySelector('form').addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const value = row.querySelector('input').value.trim();
+          if (!value) return;
+          await renamePerson(person.id, value);
+        });
+        tbody.appendChild(row);
+      }
+    }
+
+    async function loadVisits() {
+      const data = await fetchJson('/api/visits');
+      const tbody = document.getElementById('visits');
+      tbody.innerHTML = '';
+      for (const visit of data.visits) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${visit.display_label}</td>
+          <td>${visit.started_at}</td>
+          <td>${visit.ended_at || 'active'}</td>
+          <td>${formatDuration(visit.duration_seconds)}</td>
+          <td>${visit.leave_reason || visit.enter_reason || ''}</td>
+        `;
+        tbody.appendChild(row);
+      }
+    }
+
+    async function refresh() {
+      document.getElementById('latest-frame').src = `/api/latest-frame.jpg?t=${Date.now()}`;
+      await Promise.all([loadOccupants(), loadPeople(), loadVisits()]);
+    }
+
+    refresh();
+    setInterval(refresh, 4000);
+  </script>
+</body>
+</html>
